@@ -233,13 +233,35 @@ static void mainLoop(void) {
     bool up = con.ButtonUp.pressing();
     bool down = con.ButtonDown.pressing();
 
-    if (left)
+    bool stick_up = false;
+    bool stick_down = false;
+    bool stick_left = false;
+    bool stick_right = false;
+
+    int32_t x = x_axis.position();
+    int32_t y = y_axis.position();
+    int32_t deadband = 10;
+
+    if (x < -deadband) {
+      stick_left = true;
+    }
+    if (x > deadband) {
+      stick_right = true;
+    }
+    if (y < -deadband) {
+      stick_down = true;
+    }
+    if (y > deadband) {
+      stick_up = true;
+    }
+
+    if (left || stick_left)
       buttons_state |= (1 << 0);
-    if (right)
+    if (right || stick_right)
       buttons_state |= (1 << 1);
-    if (up)
+    if (up || stick_up)
       buttons_state |= (1 << 2);
-    if (down)
+    if (down || stick_down)
       buttons_state |= (1 << 3);
     if (jump)
       buttons_state |= (1 << 4);
