@@ -109,7 +109,6 @@ static void OSDset(const char *fmt, ...) {
   vsnprintf(osd_text, sizeof osd_text, fmt, ap);
   osd_text[sizeof osd_text - 1] =
       '\0'; // make sure to add NUL terminator in case of truncation
-  printf("%s\n", osd_text);
   osd_timer = 30;
   va_end(ap);
 }
@@ -201,6 +200,12 @@ const vex::controller::axis &y_axis = con.Axis3;
 const vex::controller::button &jump_button = con.ButtonA;
 const vex::controller::button &dash_button = con.ButtonB;
 
+const vex::controller::button &save_button = con.ButtonL1;
+const vex::controller::button &load_button = con.ButtonL2;
+
+bool save_was_pressing = false;
+bool load_was_pressing = false;
+
 static void mainLoop(void) {
 
   static int reset_input_timer = 0;
@@ -219,10 +224,42 @@ static void mainLoop(void) {
       Celeste_P8_set_rndseed(vex::timer::system());
       Celeste_P8_init();
     }
-  } else
-    reset_input_timer = 0;
+  } else {
 
-  // uint16_t prev_buttons_state = buttons_state;
+    reset_input_timer = 0;
+  }
+
+  // Save and load
+  if (save_button.pressing() && !save_was_pressing) {
+    game_state = game_state ? game_state : malloc(Celeste_P8_get_state_size());
+    if (game_state) {
+      OSDset("save state");
+      Celeste_P8_save_state(game_state);
+      Brain.SDcard.savefile("celeste_save.bin", (uint8_t *)game_state,
+                            Celeste_P8_get_state_size());
+    }
+  }
+  save_was_pressing = save_button.pressing();
+
+  if (load_button.pressing() && !load_was_pressing) {
+    if (Brain.SDcard.exists("celeste_save.bin")) {
+      game_state =
+          game_state ? game_state : malloc(Celeste_P8_get_state_size());
+      Brain.SDcard.loadfile("celeste_save.bin", (uint8_t *)game_state,
+                            Celeste_P8_get_state_size());
+    }
+
+    if (game_state) {
+      OSDset("load state");
+      if (paused) {
+        paused = 0;
+      }
+
+      Celeste_P8_load_state(game_state);
+    }
+  }
+  load_was_pressing = load_button.pressing();
+
   buttons_state = 0;
 
   {
@@ -287,7 +324,7 @@ static void mainLoop(void) {
   unsigned frame_time = frame_end - frame_start;
   constexpr unsigned target_millis = 33;
   // frame timing for 30fps is 33.333... ms
-  printf("frame time %d\n", frame_time);
+  // printf("frame time %d\n", frame_time);
 
   if (frame_time < target_millis) {
     vexDelay(target_millis - frame_time);
